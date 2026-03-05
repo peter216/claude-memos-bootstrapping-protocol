@@ -1,4 +1,6 @@
-# Claude Memos Bootstrapping Protocol (v0.5)
+# Claude Memos Bootstrapping Protocol
+
+Version: 0.6
 
 ## Changelog
 
@@ -89,7 +91,7 @@ The root AGENTS.md MUST contain the following frontmatter as its canonical metad
 ```yaml
 ---
 protocol: claude-memos-bootstrapping
-version: "0.5"
+version: "0.6"
 canonical-repo: github.com/<username>/<repo>
 canonical-branch: <branch>
 created: <ISO8601 timestamp>
@@ -234,4 +236,4 @@ factors MUST be surfaced to the user transparently.
 
 ---
 
-*End of Claude Memos Bootstrapping Protocol v0.5*
+*End of Claude Memos Bootstrapping Protocol*
