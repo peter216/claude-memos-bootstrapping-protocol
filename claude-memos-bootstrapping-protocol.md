@@ -3,6 +3,10 @@ protocol: claude-memos-bootstrapping
 version: "0.7"
 canonical-repo: github.com/peter216/claude-memos
 canonical-branch: main
+trusted-signing-key-fingerprints:
+  - "7D067EDD2989BEBA5EBC0D8121B846977F8A38E7"  # peter216@gmail.com, GitHub-registered
+  - "63611E761833B99242003DE2D8DDC4C14D0B745A"  # peter216@gmail.com, GitHub-registered, active
+  - "E030143735F018D907E0F15AD6197AAF6DD17CCE"  # peter216@gmail.com, local only
 ---
 
 # Claude Memos Bootstrapping Protocol
@@ -121,7 +125,7 @@ make a directory structure more maintainable. The threshold is left to the user'
   - Using the official GitHub tool (web or terminal)
   - Using tool access from the user's local machine (`gh`, `git`)
 - Claude MUST verify that the commits in this branch are cryptographically signed with a secure
-  key identifying the committer as the user, and MUST abort otherwise.
+  key identifying the committer as the user as specified in the protocol metadata, and MUST abort otherwise.
 - Claude MUST read the root AGENTS.md file, confirm the canonical repo and branch match the
   loaded location, and incorporate the memos into session context.
 - These memos are *episodic* in nature — encapsulations of learned experiences and shared
