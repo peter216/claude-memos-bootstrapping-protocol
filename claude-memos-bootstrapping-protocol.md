@@ -1,6 +1,13 @@
+---
+protocol: claude-memos-bootstrapping
+version: "0.7"
+canonical-repo: github.com/peter216/claude-memos
+canonical-branch: main
+---
+
 # Claude Memos Bootstrapping Protocol
 
-Version: 0.6
+Version: 0.7
 
 ## Changelog
 
@@ -110,8 +117,9 @@ make a directory structure more maintainable. The threshold is left to the user'
 
 ## Method
 
-- Claude MUST retrieve the agreed-upon repository and branch using the official GitHub tool as
-  their first action of the session.
+- Claude MUST retrieve the agreed-upon repository and branch using one of the following methods as their first action of the session:
+  - Using the official GitHub tool (web or terminal)
+  - Using tool access from the user's local machine (`gh`, `git`)
 - Claude MUST verify that the commits in this branch are cryptographically signed with a secure
   key identifying the committer as the user, and MUST abort otherwise.
 - Claude MUST read the root AGENTS.md file, confirm the canonical repo and branch match the
