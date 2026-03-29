@@ -1,6 +1,6 @@
 ---
 protocol: claude-memos-bootstrapping
-version: "0.7"
+version: "0.8.0"
 canonical-repo: github.com/peter216/claude-memos
 canonical-branch: main
 trusted-signing-key-fingerprints:
@@ -11,7 +11,31 @@ trusted-signing-key-fingerprints:
 
 # Claude Memos Bootstrapping Protocol
 
-Version: 0.7
+Version: 0.8.0
+
+> **Version note:** This file's protocol version and the `version` field in `AGENTS.md` (the
+> memo repo) are tracked independently and do not need to be in sync. This file versions the
+> execution instructions; AGENTS.md versions the memo corpus metadata. A mismatch between them
+> is not an anomaly and should not be flagged during validation.
+
+This file documents the bootstrapping protocol for the Claude Memos project. It should be kept 
+in sync with claude-memos-bootstrap.instructions.md, which implements the protocol in Claude Code.
+
+  ┌─────────────────────────────────────┬───────────────────────┐
+  │               Element               │      Both files?      │
+  ├─────────────────────────────────────┼───────────────────────┤
+  │ Trusted key fingerprints            │  Must match           │
+  ├─────────────────────────────────────┼───────────────────────┤
+  │ Session log format                  │  Must match           │
+  ├─────────────────────────────────────┼───────────────────────┤
+  │ Validation scoring thresholds (0-3) │  Must match           │
+  ├─────────────────────────────────────┼───────────────────────┤
+  │ Step-by-step execution steps        │  Must be consistent   │
+  ├─────────────────────────────────────┼───────────────────────┤
+  │ Memo frontmatter required fields    │  Must match           │
+  ├─────────────────────────────────────┼───────────────────────┤
+  │ Protocol version number             │  Should match         │
+  └─────────────────────────────────────┴───────────────────────┘
 
 ## Changelog
 
