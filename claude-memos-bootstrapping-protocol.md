@@ -43,7 +43,9 @@ See [CHANGELOG.md](./CHANGELOG.md) for revision history.
 
 ## Status
 
-Early test and architectural design phase. The stated mechanism for retrieving memos is known not to work as the Github tool does not have the capabilities described in the protocol. During this test phase the user will supply the memos manually using the Github tool's web interface or other mechanism. Claude should produce the log as described with a failure message, as expected, and proceed in a best effort fashion with the remainder of the instructions, clearly identifying those that cannot be implemented.
+Early test and architectural design phase. The stated mechanism for retrieving memos is known not to work in the claude.ai web interface as the Github tool does not have the capabilities described in the protocol. If the protocol is used there during this test phase the user will supply the memos manually using the Github tool's web interface or other mechanism. Claude should produce the log as described with a failure message, as expected, and proceed in a best effort fashion with the remainder of the instructions, clearly identifying those that cannot be implemented.
+
+The protocol is now fully operational in Claude Code. See [Session Memo 008](AGENTS.md#session-memo-008) for details.
 
 ---
 
