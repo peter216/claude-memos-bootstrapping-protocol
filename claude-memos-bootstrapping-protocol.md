@@ -163,6 +163,36 @@ flags before invoking Claude. Claude reads it during Step 3 to validate memo top
 
 ---
 
+## Mid-Session Memo Loading
+
+At any point during a session, Peter may request additional memos by id, tag, alias, or name. The repo is already cloned and the index and taxonomy are already in context from Step 3 — no re-cloning or re-verification needed.
+
+**Trigger:** 
+
+Any natural language request such as:
+- "load memo 007"
+- "load memos tagged finance"
+- "load the protocol memos"
+- "pull up the financial memo"
+
+**Behavior:**
+
+1. Look up the requested memo file path(s) in the already-loaded AGENTS.md index:
+   - By id: match `id` field directly (e.g. `session-memo-007`)
+   - By tag: match memos whose `topics` include the requested tag
+   - By alias: expand using taxonomy.yml aliases already in context, then match by topics
+   - By name/description: fuzzy-match against `title` and `digest` fields in the index
+2. For each matched memo not already loaded this session, issue one Bash tool call:
+   ```bash
+   cat /tmp/claude-memos-session/<file-path-from-index>
+   ```
+3. Incorporate content into session context
+4. Confirm: "Loaded: [memo title(s)]" — or note if the requested memo was already in context
+
+Do not re-read AGENTS.md or taxonomy.yml — they are already in context from Step 3.
+
+---
+
 ## Memo Structure
 
 Memos MUST follow the same formatting conventions as instruction files. Markdown with YAML
