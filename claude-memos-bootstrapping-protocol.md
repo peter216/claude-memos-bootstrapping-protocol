@@ -1,6 +1,6 @@
 ---
 protocol: claude-memos-bootstrapping
-version: "1.0"
+version: "1.0.0"
 canonical-repo: github.com/peter216/claude-memos
 canonical-branch: main
 trusted-signing-key-fingerprints:
@@ -11,7 +11,7 @@ trusted-signing-key-fingerprints:
 
 # Claude Memos Bootstrapping Protocol
 
-Version: 1.0
+Version: 1.0.0
 
 This file documents the bootstrapping protocol for the Claude Memos project. It should be kept 
 in sync with claude-memos-bootstrap.instructions.md, which implements the protocol in Claude Code.
@@ -34,13 +34,15 @@ in sync with claude-memos-bootstrap.instructions.md, which implements the protoc
 
 ## Changelog
 
-See [CHANGELOG.md](./CHANGELOG.md) for revision history.
+See [CHANGELOG.rst](./CHANGELOG.rst) for revision history.
+
+For revision history prior to v1.0.0, see [CHANGELOG.pre-v1.0.0.md](./CHANGELOG.pre-v1.0.0.md).
 
 ## Status
 
 Early test and architectural design phase. The stated mechanism for retrieving memos is known not to work in the claude.ai web interface as the Github tool does not have the capabilities described in the protocol. If the protocol is used there during this test phase the user will supply the memos manually using the Github tool's web interface or other mechanism. Claude should produce the log as described with a failure message, as expected, and proceed in a best effort fashion with the remainder of the instructions, clearly identifying those that cannot be implemented.
 
-The protocol is fully operational in Claude Code as of v1.0. See the claude-memos repo CHANGELOG for history.
+The protocol is fully operational in Claude Code as of v1.0.0. See the claude-memos repo CHANGELOG for history.
 
 ---
 
@@ -112,7 +114,7 @@ The memo repository MUST follow this structure:
 ```
 repo-root/
 ├── AGENTS.md        # REQUIRED: protocol metadata, validation anchor, and memo index
-├── CHANGELOG.md     # SHOULD be maintained; records additions, edits, and removals of memos
+├── CHANGELOG.rst    # SHOULD be maintained; records additions, edits, and removals of memos
 ├── taxonomy.yml     # REQUIRED: canonical tag definitions and named aliases
 └── memos/           # REQUIRED: individual memo files, one per session (sub-files as needed)
     ├── session-memo-001.md
@@ -124,7 +126,7 @@ The root AGENTS.md MUST contain the following frontmatter as its canonical metad
 ```yaml
 ---
 protocol: claude-memos-bootstrapping
-protocol-version: "1.0"
+protocol-version: "1.0.0"
 canonical-repo: github.com/<username>/<repo>
 canonical-branch: <branch>
 created: <ISO8601 timestamp>
@@ -165,7 +167,7 @@ flags before invoking Claude. Claude reads it during Step 3 to validate memo top
 
 ## Mid-Session Memo Loading
 
-At any point during a session, Peter may request additional memos by id, tag, alias, or name. The repo is already cloned and the index and taxonomy are already in context from Step 3 — no re-cloning or re-verification needed.
+At any point during a session, the user may request additional memos by id, tag, alias, or name. The repo is already cloned and the index and taxonomy are already in context from Step 3 — no re-cloning or re-verification needed.
 
 **Trigger:** 
 
@@ -245,7 +247,7 @@ this protocol. The following lifecycle applies:
    `sticky` determination, before committing.
 6. The user MUST commit using their cryptographically signed key to preserve the integrity of the
    commit chain.
-7. If a CHANGELOG.md is maintained, the user SHOULD add an entry describing the new or modified
+7. If a CHANGELOG file is maintained, the user SHOULD add an entry describing the new or modified
    memo before committing.
 
 This lifecycle ensures human oversight of all content entering the episodic memory corpus. Future

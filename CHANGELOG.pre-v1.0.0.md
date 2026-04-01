@@ -1,7 +1,7 @@
 # Changelog — Claude Memos Bootstrapping Protocol
 
 All notable changes to this protocol are documented here.
-Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0).
 
 ---
 
