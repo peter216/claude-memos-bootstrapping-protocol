@@ -1,6 +1,6 @@
 ---
 protocol: claude-memos-bootstrapping
-version: "0.8.0"
+version: "1.0"
 canonical-repo: github.com/peter216/claude-memos
 canonical-branch: main
 trusted-signing-key-fingerprints:
@@ -11,12 +11,7 @@ trusted-signing-key-fingerprints:
 
 # Claude Memos Bootstrapping Protocol
 
-Version: 0.8.0
-
-> **Version note:** This file's protocol version and the `version` field in `AGENTS.md` (the
-> memo repo) are tracked independently and do not need to be in sync. This file versions the
-> execution instructions; AGENTS.md versions the memo corpus metadata. A mismatch between them
-> is not an anomaly and should not be flagged during validation.
+Version: 1.0
 
 This file documents the bootstrapping protocol for the Claude Memos project. It should be kept 
 in sync with claude-memos-bootstrap.instructions.md, which implements the protocol in Claude Code.
@@ -45,7 +40,7 @@ See [CHANGELOG.md](./CHANGELOG.md) for revision history.
 
 Early test and architectural design phase. The stated mechanism for retrieving memos is known not to work in the claude.ai web interface as the Github tool does not have the capabilities described in the protocol. If the protocol is used there during this test phase the user will supply the memos manually using the Github tool's web interface or other mechanism. Claude should produce the log as described with a failure message, as expected, and proceed in a best effort fashion with the remainder of the instructions, clearly identifying those that cannot be implemented.
 
-The protocol is now fully operational in Claude Code. See [Session Memo 008](AGENTS.md#session-memo-008) for details.
+The protocol is fully operational in Claude Code as of v1.0. See the claude-memos repo CHANGELOG for history.
 
 ---
 
@@ -116,11 +111,12 @@ The memo repository MUST follow this structure:
 
 ```
 repo-root/
-├── AGENTS.md        # REQUIRED: root file containing protocol metadata and validation anchors
+├── AGENTS.md        # REQUIRED: protocol metadata, validation anchor, and memo index
 ├── CHANGELOG.md     # SHOULD be maintained; records additions, edits, and removals of memos
-└── memos/           # MAY be used once the memo corpus exceeds manageable single-file size
-    ├── 2026-03-05-voice-philosophy.md
-    └── 2026-02-28-devops-pitch.md
+├── taxonomy.yml     # REQUIRED: canonical tag definitions and named aliases
+└── memos/           # REQUIRED: individual memo files, one per session (sub-files as needed)
+    ├── session-memo-001.md
+    └── session-memo-NNN.md
 ```
 
 The root AGENTS.md MUST contain the following frontmatter as its canonical metadata block:
@@ -128,20 +124,24 @@ The root AGENTS.md MUST contain the following frontmatter as its canonical metad
 ```yaml
 ---
 protocol: claude-memos-bootstrapping
-version: "0.6"
+protocol-version: "1.0"
 canonical-repo: github.com/<username>/<repo>
 canonical-branch: <branch>
 created: <ISO8601 timestamp>
 ---
 ```
 
-This frontmatter serves as the validation anchor for the entire protocol. Any session loading
-memos from a repo or branch that does not match these values MUST be treated as a historical
-coherence failure.
+AGENTS.md MUST also contain a `## Memo Index` section with a YAML block listing all memos.
+Each entry MUST include: `id`, `file`, `created`, `title`, `topics`, `sticky`, and `digest`.
+The `sticky` field is authoritative here — it is NOT stored in individual memo frontmatter.
 
-Individual memos MAY be embedded directly in AGENTS.md or stored as separate files in a `memos/`
-subdirectory. A single AGENTS.md file SHOULD be used until the corpus becomes large enough to
-make a directory structure more maintainable. The threshold is left to the user's judgment.
+This frontmatter and index serve as the validation anchor for the entire protocol. Any session
+loading memos from a repo or branch that does not match the frontmatter values MUST be treated
+as a historical coherence failure.
+
+The `taxonomy.yml` file MUST define canonical tag names and MAY define named aliases that
+expand to sets of tags. The bootstrap script reads this file to resolve `--tags` and `--alias`
+flags before invoking Claude. Claude reads it during Step 3 to validate memo topics.
 
 ---
 
@@ -167,7 +167,7 @@ make a directory structure more maintainable. The threshold is left to the user'
 
 Memos MUST follow the same formatting conventions as instruction files. Markdown with YAML
 frontmatter is the RECOMMENDED default; JSON is also supported. The following frontmatter fields
-are REQUIRED:
+are REQUIRED in individual memo files:
 
 ```yaml
 ---
@@ -185,9 +185,17 @@ topics: [topic-a, topic-b]
   substituted with the actual conversation name before committing. See Memo Lifecycle.
 - `created` and `modified` timestamps allow Claude to weight relative recency when integrating
   context.
-- `topics` supports cross-referencing and future filtering.
+- `topics` SHOULD use only tags defined in `taxonomy.yml`. Unknown tags generate a warning
+  during bootstrap but do not abort the session.
+- `sticky` is NOT stored in individual memo frontmatter. It is set in the AGENTS.md index and
+  is authoritative there. Stickiness is a corpus-level judgment about a memo's relevance to
+  all sessions, not an intrinsic property of the memo itself.
 - The memo body SHOULD be narrative and contextual in tone, not imperative. If a memo begins to
   read like an instruction, it belongs in the instructions channel instead.
+
+When a single session covers sufficiently distinct topics, the memo MAY be split into sub-files
+(e.g., `session-memo-006a-mcp-architecture.md`, `session-memo-006b-process-notes.md`). Each
+sub-file carries its own frontmatter and its own entry in the AGENTS.md index.
 
 ---
 
@@ -198,13 +206,16 @@ this protocol. The following lifecycle applies:
 
 1. At session close, the user MAY request that Claude generate a memo for the session.
 2. Claude MUST generate the memo file with `{{ CONVERSATION_TITLE }}` as a placeholder.
+   `sticky` MUST NOT appear in the memo frontmatter — it belongs in the AGENTS.md index only.
 3. The user and Claude SHOULD review and agree on the final memo content before it is committed.
    This collaborative review is the intended default and SHOULD NOT be skipped.
 4. The user MUST substitute `{{ CONVERSATION_TITLE }}` with the actual conversation name before
    committing. A helper script MAY be used to prompt for this substitution.
-5. The user MUST commit using their cryptographically signed key to preserve the integrity of the
+5. The user MUST add a corresponding entry to the `## Memo Index` in AGENTS.md, including the
+   `sticky` determination, before committing.
+6. The user MUST commit using their cryptographically signed key to preserve the integrity of the
    commit chain.
-6. If a CHANGELOG.md is maintained, the user SHOULD add an entry describing the new or modified
+7. If a CHANGELOG.md is maintained, the user SHOULD add an entry describing the new or modified
    memo before committing.
 
 This lifecycle ensures human oversight of all content entering the episodic memory corpus. Future
