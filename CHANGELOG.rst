@@ -4,7 +4,20 @@ mind.netdevconnect Release Notes
 
 .. contents:: Topics
 
-v1.0.1
+v1.1.0
+======
+
+Release Summary
+---------------
+
+This release introduces a minor update to the claude-memos tool, allowing mid-session memo loading. It also introduces the antsibull-changelog tool method for managing changelogs.
+
+Minor Changes
+-------------
+
+- Add `Session Resume` section to README
+
+v1.0.0
 ======
 
 Release Summary
@@ -18,5 +31,5 @@ Major Changes
 - Co-Authored-By - Claude Sonnet 4.6 <noreply@anthropic.com>
 - Mid-Session Memo Loading - At any point during a session, Peter may request additional memos by id, tag, alias, or name.
 - bin/claude-memos - add --recent, --tags, --alias, --all, --memos, --list flags; inject Memo Loading Directive into system prompt; add MEMO_REPO_PATH and TAXONOMY_FILE env vars; fix --help reference from cpeer to claude-memos
-- bootstrap instructions (claude-memos-bootstrap.instructions.md via symlink) - bump to v1.0.1; rewrite Step 3 for index-based loading with taxonomy resolution and directive-driven memo selection; update session log format to show loaded/total counts; update session close instructions for sticky/index model
-- claude-memos-bootstrapping-protocol.md - bump to v1.0.1; update Repo Structure to require taxonomy.yml and memos/ directory; update Memo Structure to document that sticky lives in AGENTS.md index only (not memo frontmatter); add sub-file convention; update Memo Lifecycle with index update step
+- bootstrap instructions (claude-memos-bootstrap.instructions.md via symlink) - bump to v1.0.0; rewrite Step 3 for index-based loading with taxonomy resolution and directive-driven memo selection; update session log format to show loaded/total counts; update session close instructions for sticky/index model
+- claude-memos-bootstrapping-protocol.md - bump to v1.0.0; update Repo Structure to require taxonomy.yml and memos/ directory; update Memo Structure to document that sticky lives in AGENTS.md index only (not memo frontmatter); add sub-file convention; update Memo Lifecycle with index update step

@@ -1,6 +1,6 @@
 ---
 protocol: claude-memos-bootstrapping
-version: "1.0.0"
+version: "1.1.0"
 canonical-repo: github.com/peter216/claude-memos
 canonical-branch: main
 trusted-signing-key-fingerprints:
@@ -11,9 +11,9 @@ trusted-signing-key-fingerprints:
 
 # Claude Memos Bootstrapping Protocol
 
-Version: 1.0.0
+Version: 1.1.0
 
-This file documents the bootstrapping protocol for the Claude Memos project. It should be kept 
+This file documents the bootstrapping protocol for the Claude Memos project. It should be kept
 in sync with claude-memos-bootstrap.instructions.md, which implements the protocol in Claude Code.
 
   ┌─────────────────────────────────────┬───────────────────────┐
@@ -126,7 +126,7 @@ The root AGENTS.md MUST contain the following frontmatter as its canonical metad
 ```yaml
 ---
 protocol: claude-memos-bootstrapping
-protocol-version: "1.0.0"
+protocol-version: "1.1.0"
 canonical-repo: github.com/<username>/<repo>
 canonical-branch: <branch>
 created: <ISO8601 timestamp>
@@ -169,9 +169,10 @@ flags before invoking Claude. Claude reads it during Step 3 to validate memo top
 
 At any point during a session, the user may request additional memos by id, tag, alias, or name. The repo is already cloned and the index and taxonomy are already in context from Step 3 — no re-cloning or re-verification needed.
 
-**Trigger:** 
+**Trigger:**
 
 Any natural language request such as:
+
 - "load memo 007"
 - "load memos tagged finance"
 - "load the protocol memos"
@@ -185,9 +186,11 @@ Any natural language request such as:
    - By alias: expand using taxonomy.yml aliases already in context, then match by topics
    - By name/description: fuzzy-match against `title` and `digest` fields in the index
 2. For each matched memo not already loaded this session, issue one Bash tool call:
+
    ```bash
    cat /tmp/claude-memos-session/<file-path-from-index>
    ```
+
 3. Incorporate content into session context
 4. Confirm: "Loaded: [memo title(s)]" — or note if the requested memo was already in context
 
