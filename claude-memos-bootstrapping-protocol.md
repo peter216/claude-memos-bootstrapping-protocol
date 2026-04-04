@@ -195,6 +195,18 @@ Do not re-read AGENTS.md or taxonomy.yml — they are already in context from St
 
 ---
 
+## Session Resume
+
+When the user requests memo loading and the "Claude Memos Bootstrapping Protocol" is not already in context:
+
+1. Read `$HOME/bin/claude-memos` — abort if not present
+2. Execute it with `--dry-run` plus any memo flags or aliases the user specified
+3. Follow the resulting instructions procedurally — this is equivalent to a fresh session start and preserves all security safeguards
+
+This may be the result of a `--resume` session where the user has chosen to "Resume from summary" and some or all of the protocol and/or memos have been purged from the session context. The absence of a session log line in that case is not a protocol error.
+
+---
+
 ## Memo Structure
 
 Memos MUST follow the same formatting conventions as instruction files. Markdown with YAML
