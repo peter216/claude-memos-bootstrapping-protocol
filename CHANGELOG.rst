@@ -4,6 +4,44 @@ mind.netdevconnect Release Notes
 
 .. contents:: Topics
 
+v1.2.0
+======
+
+Release Summary
+---------------
+
+This release adds full Claude.ai support via the gh-mcp remote MCP server. The protocol
+is now operational on two paths: Claude Code (Path A, git CLI) and Claude.ai (Path B,
+gh-mcp). The Memo Loading Directive can now be specified per-session in the opening user
+message, removing the need to edit Project instructions between sessions.
+
+Major Changes
+-------------
+
+- Claude.ai path (Path B) is now fully operational. The gh-mcp server
+  (``https://mcp.martiangoblin.xyz/mcp``) exposes three MCP tools — ``verify_repo_state``,
+  ``fetch_memos``, and ``read_repo_file`` — providing signature verification, AGENTS.md
+  parsing, and individual memo file retrieval. Claude.ai sessions use the Project
+  instructions in ``docs/MCP-PROTOCOL-IMPLEMENTATION.md`` Appendix A.
+
+Minor Changes
+-------------
+
+- ``read_repo_file(repo, branch, path)`` added to gh-mcp server. Reads any file from the
+  cached repo by path relative to the repo root. Includes path traversal protection
+  (rejects absolute paths and ``..`` components). Closes the file-reading gap that
+  previously left Claude.ai with index digests only.
+- Memo Loading Directive now resolved from the opening user message first, then the static
+  default in the Project/instructions file, then sticky-only. Allows per-session overrides
+  (e.g., ``--alias protocol`` or ``--tags finance`` on the first line of a message) without
+  editing the Claude.ai Project instructions.
+- ``claude-memos-bootstrapping-protocol.md`` updated: Method section now documents Path A
+  and Path B explicitly; Session Resume covers both paths; Known Capability Dependency
+  updated to describe approved retrieval paths; AGENTS.md frontmatter example updated to
+  protocol-version 1.2.0.
+- ``claude-memos-bootstrap.instructions.md`` version bumped to 1.2.0. No behavioural
+  changes to the Claude Code path.
+
 v1.1.0
 ======
 

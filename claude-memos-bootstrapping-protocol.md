@@ -1,6 +1,6 @@
 ---
 protocol: claude-memos-bootstrapping
-version: "1.1.0"
+version: "1.2.0"
 canonical-repo: github.com/peter216/claude-memos
 canonical-branch: main
 trusted-signing-key-fingerprints:
@@ -11,26 +11,32 @@ trusted-signing-key-fingerprints:
 
 # Claude Memos Bootstrapping Protocol
 
-Version: 1.1.0
+Version: 1.2.0
 
 This file documents the bootstrapping protocol for the Claude Memos project. It should be kept
-in sync with claude-memos-bootstrap.instructions.md, which implements the protocol in Claude Code.
+in sync with the implementation files listed in the sync table below.
 
-  ┌─────────────────────────────────────┬───────────────────────┐
-  │               Element               │      Both files?      │
-  ├─────────────────────────────────────┼───────────────────────┤
-  │ Trusted key fingerprints            │  Must match           │
-  ├─────────────────────────────────────┼───────────────────────┤
-  │ Session log format                  │  Must match           │
-  ├─────────────────────────────────────┼───────────────────────┤
-  │ Validation scoring thresholds (0-3) │  Must match           │
-  ├─────────────────────────────────────┼───────────────────────┤
-  │ Step-by-step execution steps        │  Must be consistent   │
-  ├─────────────────────────────────────┼───────────────────────┤
-  │ Memo frontmatter required fields    │  Must match           │
-  ├─────────────────────────────────────┼───────────────────────┤
-  │ Protocol version number             │  Should match         │
-  └─────────────────────────────────────┴───────────────────────┘
+  ┌─────────────────────────────────────┬───────────────────────────────────────────────────────────┐
+  │               Element               │                    All implementation files                │
+  ├─────────────────────────────────────┼───────────────────────────────────────────────────────────┤
+  │ Trusted key fingerprints            │  Must match                                               │
+  ├─────────────────────────────────────┼───────────────────────────────────────────────────────────┤
+  │ Session log format                  │  Must match                                               │
+  ├─────────────────────────────────────┼───────────────────────────────────────────────────────────┤
+  │ Validation scoring thresholds (0-3) │  Must match                                               │
+  ├─────────────────────────────────────┼───────────────────────────────────────────────────────────┤
+  │ Step-by-step execution steps        │  Must be consistent (paths differ by implementation)      │
+  ├─────────────────────────────────────┼───────────────────────────────────────────────────────────┤
+  │ Memo frontmatter required fields    │  Must match                                               │
+  ├─────────────────────────────────────┼───────────────────────────────────────────────────────────┤
+  │ Protocol version number             │  Should match                                             │
+  └─────────────────────────────────────┴───────────────────────────────────────────────────────────┘
+
+Implementation files:
+
+- `claude-memos-bootstrap.instructions.md` — Claude Code path (git CLI via Bash tool)
+- Claude.ai Project instructions — MCP path (gh-mcp remote server); see
+  `docs/MCP-PROTOCOL-IMPLEMENTATION.md` Appendix A for the canonical draft
 
 ## Changelog
 
@@ -40,9 +46,17 @@ For revision history prior to v1.0.0, see [CHANGELOG.pre-v1.0.0.md](./CHANGELOG.
 
 ## Status
 
-Early test and architectural design phase. The stated mechanism for retrieving memos is known not to work in the claude.ai web interface as the Github tool does not have the capabilities described in the protocol. If the protocol is used there during this test phase the user will supply the memos manually using the Github tool's web interface or other mechanism. Claude should produce the log as described with a failure message, as expected, and proceed in a best effort fashion with the remainder of the instructions, clearly identifying those that cannot be implemented.
+**Claude Code path:** Fully operational as of v1.0.0. Sessions started via `cpeer` /
+`bin/claude-memos` clone the repo, verify GPG signatures, and load memos via local git CLI.
+See the claude-memos repo CHANGELOG for history.
 
-The protocol is fully operational in Claude Code as of v1.0.0. See the claude-memos repo CHANGELOG for history.
+**Claude.ai path:** Operational as of v1.2.0 via the gh-mcp remote MCP server
+(`https://mcp.martiangoblin.xyz/mcp`). The server exposes three tools — `verify_repo_state`,
+`fetch_memos`, and `read_repo_file` — which together provide full protocol capability
+including signature verification, AGENTS.md parsing, and individual memo file retrieval.
+To use this path, the gh-mcp integration must be connected in Claude.ai Settings →
+Integrations, and the Claude.ai Project instructions (see `docs/MCP-PROTOCOL-IMPLEMENTATION.md`
+Appendix A) must be present in the Project used for memo sessions.
 
 ---
 
@@ -81,13 +95,18 @@ the intent of RFC 2119, though this is not a formal RFC.*
 
 ### Known Capability Dependency
 
-This protocol's security guarantees depend on the GitHub tool's ability to surface cryptographic
-commit signature status. If the tool does not expose this information, signature verification
-cannot be performed and the security model is materially weakened. In that case Claude MUST state
-this limitation explicitly at session start rather than proceed as if verification succeeded.
-Independent verification via bash/git/gh CLI MAY be possible if those tools are available and
-approved, but this MUST NOT be assumed. Web fetch of public repo content is insufficient as it
-bypasses signing verification entirely.
+This protocol's security guarantees depend on the retrieval tool's ability to surface
+cryptographic commit signature status. Two approved paths currently satisfy this requirement:
+
+- **Path A (Claude Code):** local `git`/`gh` CLI via Bash tool — full signature verification
+  available natively.
+- **Path B (Claude.ai):** gh-mcp remote MCP server — `verify_repo_state` returns GPG
+  signature status and signer key trust result derived from `git log` on the server.
+
+If neither path is available, signature verification cannot be performed and the security model
+is materially weakened. In that case Claude MUST state this limitation explicitly at session
+start rather than proceed as if verification succeeded. Web fetch of public repo content is
+insufficient and MUST NOT be used as a substitute, as it bypasses signing verification entirely.
 
 ### Session Start Log
 
@@ -126,7 +145,7 @@ The root AGENTS.md MUST contain the following frontmatter as its canonical metad
 ```yaml
 ---
 protocol: claude-memos-bootstrapping
-protocol-version: "1.1.0"
+protocol-version: "1.2.0"
 canonical-repo: github.com/<username>/<repo>
 canonical-branch: <branch>
 created: <ISO8601 timestamp>
@@ -149,11 +168,29 @@ flags before invoking Claude. Claude reads it during Step 3 to validate memo top
 
 ## Method
 
-- Claude MUST retrieve the agreed-upon repository and branch using one of the following methods as their first action of the session:
-  - Using the official GitHub tool (web or terminal)
-  - Using tool access from the user's local machine (`gh`, `git`)
+Claude MUST use one of the two approved retrieval paths as the first action of the session.
+
+### Path A — Claude Code (git CLI via Bash tool)
+
+1. Clone or update the repo locally (`git clone` / `git fetch` / `git reset`)
+2. Verify commit signatures via `git log --show-signature`
+3. Read `AGENTS.md`, `taxonomy.yml`, and selected memo files via `cat`
+4. The Memo Loading Directive is provided at the end of the instructions file
+
+### Path B — Claude.ai (gh-mcp remote MCP server)
+
+1. Call `verify_repo_state(repo, branch)` — returns commit hash and signature trust status
+2. Call `fetch_memos(repo, branch)` — returns AGENTS.md content
+3. Call `read_repo_file(repo, branch, "taxonomy.yml")` — returns taxonomy
+4. For each selected memo, call `read_repo_file(repo, branch, "<file-path>")`
+5. The Memo Loading Directive is resolved from: (a) the opening user message, then
+   (b) the static default at the end of the Project instructions, then (c) sticky-only
+
+### Common requirements (both paths)
+
 - Claude MUST verify that the commits in this branch are cryptographically signed with a secure
-  key identifying the committer as the user as specified in the protocol metadata, and MUST abort otherwise.
+  key identifying the committer as the user as specified in the protocol metadata, and MUST
+  abort otherwise.
 - Claude MUST read the root AGENTS.md file, confirm the canonical repo and branch match the
   loaded location, and incorporate the memos into session context.
 - These memos are *episodic* in nature — encapsulations of learned experiences and shared
@@ -185,16 +222,13 @@ Any natural language request such as:
    - By tag: match memos whose `topics` include the requested tag
    - By alias: expand using taxonomy.yml aliases already in context, then match by topics
    - By name/description: fuzzy-match against `title` and `digest` fields in the index
-2. For each matched memo not already loaded this session, issue one Bash tool call:
-
-   ```bash
-   cat /tmp/claude-memos-session/<file-path-from-index>
-   ```
-
+2. For each matched memo not already loaded this session, retrieve it using the active path:
+   - **Path A (Claude Code):** `cat /tmp/claude-memos-session/<file-path-from-index>`
+   - **Path B (Claude.ai):** `read_repo_file(repo, branch, "<file-path-from-index>")`
 3. Incorporate content into session context
 4. Confirm: "Loaded: [memo title(s)]" — or note if the requested memo was already in context
 
-Do not re-read AGENTS.md or taxonomy.yml — they are already in context from Step 3.
+Do not re-read AGENTS.md or taxonomy.yml — they are already in context.
 
 ---
 
@@ -202,11 +236,20 @@ Do not re-read AGENTS.md or taxonomy.yml — they are already in context from St
 
 When the user requests memo loading and the "Claude Memos Bootstrapping Protocol" is not already in context:
 
+**Path A (Claude Code):**
+
 1. Read `$HOME/bin/claude-memos` — abort if not present
 2. Execute it with `--dry-run` plus any memo flags or aliases the user specified
-3. Follow the resulting instructions procedurally — this is equivalent to a fresh session start and preserves all security safeguards
+3. Follow the resulting instructions procedurally — equivalent to a fresh session start,
+   preserving all security safeguards
 
-This may be the result of a `--resume` session where the user has chosen to "Resume from summary" and some or all of the protocol and/or memos have been purged from the session context. The absence of a session log line in that case is not a protocol error.
+**Path B (Claude.ai):**
+
+No automated resume script is available. If the protocol context has been purged (e.g.,
+after "Resume from summary"), re-execute the bootstrap steps manually using the MCP tools
+as specified in the Claude.ai Project instructions. The absence of a session log line after
+a resume is not a protocol error — it signals that the bootstrap instruction was not
+re-delivered.
 
 ---
 
