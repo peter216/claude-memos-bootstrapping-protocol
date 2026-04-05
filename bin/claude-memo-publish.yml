@@ -5,17 +5,17 @@
   connection: local
   gather_facts: false
   vars_prompt:
-    - name: "memo_filename"
-      prompt: "Enter the name of the memo file to publish (e.g., session-memo-011.md)"
+    - name: 'memo_filename'
+      prompt: 'Enter the name of the memo file to publish (e.g., session-memo-011.md)'
       private: false
-    - name: "conversation_title"
+    - name: 'conversation_title'
       prompt: "Enter the title of the conversation for memory update (e.g., 'Claude.ai Protocol Path Is Operational')"
       private: false
   vars:
     home_directory: "{{ lookup('env', 'HOME') }}"
-    dot_claude_dir: "{{ home_directory }}/.claude"
-    bin_dir: "{{ home_directory }}/bin"
-    memos_dir: "{{ home_directory }}/git/claude-project/claude-memos/memos"
+    dot_claude_dir: '{{ home_directory }}/.claude'
+    bin_dir: '{{ home_directory }}/bin'
+    memos_dir: '{{ home_directory }}/git/claude-project/claude-memos/memos'
     chezmoi_subdirs:
       - commands
       - instructions
@@ -23,20 +23,27 @@
       - skills
 
   tasks:
+    - name: Catch and stop a common input error with DRY_RUN
+      ansible.builtin.fail:
+        msg: "DRY_RUN is set to the string 'false' which evaluates as true! Use DRY_RUN=0 to disable dry run mode."
+      when:
+        - DRY_RUN is defined
+        - DRY_RUN | type_debug == 'str'
+        - DRY_RUN | lower == 'false'
+
     - name: Find Chezmoi unmanaged files in ~/.claude
       ansible.builtin.shell:
-        cmd: "{{ bin_dir }}/find-unmanaged.sh {{ dot_claude_dir }}/{{ item }}"
+        cmd: '{{ bin_dir }}/find-unmanaged.sh {{ dot_claude_dir }}/{{ item }}'
         executable: /bin/bash
-      loop: "{{ chezmoi_subdirs }}"
+      loop: '{{ chezmoi_subdirs }}'
       register: find_unmanaged_result
-      failed_when: find_unmanaged_result.rc != 0
       changed_when: false
 
     - name: Output result of finding unmanaged files
       ansible.builtin.debug:
-        msg: "{{['WARNING: Unmanaged files in ~/.claude/' + directory + ':'] + unmanaged_files | map('regex_replace', '^(.*)$',
+        msg: "{{ ['WARNING: Unmanaged files in ~/.claude/' + directory + ':'] + unmanaged_files | map('regex_replace', '^(.*)$',
           '- \\1') }}"
-      loop: "{{ directories }}"
+      loop: '{{ directories }}'
       loop_control:
         loop_var: directory
       vars:
@@ -47,69 +54,69 @@
 
     - name: Publish Claude Memos using Chezmoi
       ansible.builtin.shell:
-        cmd: "{{ bin_dir }}/chezmoi_reconcile.sh {{ directory }}"
-        chdir: "{{ dot_claude_dir }}"
+        cmd: '{{ bin_dir }}/chezmoi_reconcile.sh {{ directory }}'
+        chdir: '{{ dot_claude_dir }}'
         executable: /bin/bash
-      loop: "{{ chezmoi_subdirs }}"
+      loop: '{{ chezmoi_subdirs }}'
       loop_control:
         loop_var: directory
       register: chezmoi_publish_result
-      failed_when: chezmoi_publish_result.rc != 0
       when: DRY_RUN | default(0) | int == 0
 
     - name: Get files that would be reconciled by Chezmoi in DRY_RUN mode
       ansible.builtin.shell:
-        cmd: "{{ bin_dir }}/chezmoi_reconcile.sh {{ directory }} --dry-run"
-        chdir: "{{ dot_claude_dir }}"
+        cmd: '{{ bin_dir }}/chezmoi_reconcile.sh {{ directory }} --dry-run'
+        chdir: '{{ dot_claude_dir }}'
         executable: /bin/bash
-      loop: "{{ chezmoi_subdirs }}"
+      loop: '{{ chezmoi_subdirs }}'
       loop_control:
         loop_var: directory
       register: chezmoi_dry_run_result
-      failed_when: chezmoi_dry_run_result.rc != 0
       changed_when: false
       when: DRY_RUN | default(0) | int != 0
 
     - name: DRY_RUN mode - Command that would have been executed for Chezmoi publish
       ansible.builtin.debug:
         msg:
-          - "DRY_RUN mode enabled. The following command would have been executed to publish Claude Memos using Chezmoi:"
-          - "chdir {{ dot_claude_dir }}"
+          - 'DRY_RUN mode enabled. The following command would have been executed to publish Claude Memos using Chezmoi:'
+          - 'chdir {{ dot_claude_dir }}'
           - "/bin/bash -c '{{ bin_dir }}/chezmoi_reconcile.sh <directory>'"
-          - "Files that would have been reconciled:"
-          - "{{ chezmoi_dry_run_result.results | ansible.utils.keep_keys(['directory', 'stdout_lines']) | list | flatten |
-            map('regex_replace', '^(.*)$', '- \\1') }}"
-      changed_when: false
+          - 'Files that would have been reconciled:'
+          - "{{ chezmoi_dry_run_result.results | map(attribute='stdout_lines') | list | flatten | map('regex_replace', '^(.*)$',
+            '- \\1') | list }}"
       when: DRY_RUN | default(0) | int != 0
 
     - name: Output result of Chezmoi publish
       ansible.builtin.debug:
-        msg: "{{ [separator, output_lines.key, separator]  + (output_lines.value | map('regex_replace', '^(.*)$', '- \\1')
-          | list) }}"
-      loop: "{{ output_types | dict2items }}"
+        msg: "{{ [separator, 'Directory: ' + result.item, separator] + result.stdout_lines + (result.stderr_lines |
+          map('regex_replace', '^(.*)$', 'STDERR: \\1') | list) }}"
+      loop: '{{ chezmoi_publish_result.results }}'
       loop_control:
-        loop_var: output_lines
-        label: "{{ output_lines.key }}"
+        loop_var: result
+        label: '{{ result.item }}'
       vars:
-        output_types:
-          STDOUT: "{{ chezmoi_publish_result.stdout_lines }}"
-          STDERR: "{{ chezmoi_publish_result.stderr_lines }}"
-        separator: "----------------------------------------"
+        separator: '----------------------------------------'
       when:
         - DRY_RUN | default(0) | int == 0
-        - output_lines.value | length > 0
+        - result.stdout_lines | length > 0 or result.stderr_lines | length > 0
+
+    - name: Back up memo file before variable substitution
+      ansible.builtin.copy:
+        src: '{{ memos_dir }}/{{ memo_filename }}'
+        dest: '{{ memos_dir }}/{{ memo_filename }}.bak'
+        remote_src: true
 
     - name: Replace jinja templated variables in the memo file
-      ansible.builtin.shell:
-        cmd: "sed -i.bak -E 's/\\{\\{\\s*CONVERSATION_TITLE\\s*\\}\\}/{{ conversation_title | regex_escape() }}/g' {{ memo_filename
-          }}"
-        executable: /bin/bash
-        chdir: "{{ memos_dir }}"
-      register: sed_result
+      ansible.builtin.replace:
+        path: '{{ memos_dir }}/{{ memo_filename }}'
+        regexp: '\{\{\s*CONVERSATION_TITLE\s*\}\}'
+        replace: '{{ conversation_title }}'
+      register: replace_result
 
     - name: Diff the before and after of the memo file to verify changes
       ansible.builtin.command:
-        cmd: "diff {{ memo_filename }} {{ memo_filename }}.bak || true"
+        cmd: 'diff {{ memo_filename }}.bak {{ memo_filename }}'
+        chdir: '{{ memos_dir }}'
       register: diff_result
       failed_when: false
       changed_when: false
@@ -118,48 +125,47 @@
       ansible.builtin.debug:
         msg: "{{ diff_lines if diff_result.rc == 1 else ['No changes detected in the memo file.'] }}"
       vars:
-        diff_lines: "{{ ['Diff of memo file changes:'] + diff_result.stdout_lines | map('regex_replace', '^(.*)$', '- \\1')
-          }}"
+        diff_lines: "{{ ['Diff of memo file changes:'] + diff_result.stdout_lines | map('regex_replace', '^(.*)$', '- \\1') }}"
 
     - name: Prompt user to check file before committing
       ansible.builtin.pause:
-        prompt: "Please review the changes to the memo file above. Press Enter to continue with committing and pushing the
-          changes, or Ctrl+C to abort."
+        prompt: 'Please review the changes to the memo file above. Press Enter to continue with committing and pushing the
+          changes, or Ctrl+C to abort.'
 
     - name: Commit and push changes to the memo file
       ansible.builtin.shell:
-        cmd: "{{ command }}"
+        cmd: '{{ command }}'
         executable: /bin/bash
-        chdir: "{{ memos_dir }}"
+        chdir: '{{ memos_dir }}'
       vars:
-        command: "{{ 'source ~/.function/git.function && pushgitfast ' + memo_filename | basename + ': ' + (conversation_title
-          | regex_escape | quote) }}"
+        command: "{{ 'source ~/.function/git.function && pushgitfast ' + (memo_filename | basename) + ': ' + (conversation_title
+          | quote) }}"
       register: git_push_result
       when: DRY_RUN | default(0) | int == 0
 
     - name: DRY_RUN mode - Command that would have been executed
       ansible.builtin.debug:
         msg:
-          - "chdir {{ memos_dir }}"
+          - 'chdir {{ memos_dir }}'
           - "/bin/bash -c '{{ command }}'"
       vars:
-        command: "{{ 'source ~/.function/git.function && pushgitfast ' + memo_filename | basename + ': ' + (conversation_title
-          | regex_escape | quote) }}"
+        command: "{{ 'source ~/.function/git.function && pushgitfast ' + (memo_filename | basename) + ': ' + (conversation_title
+          | quote) }}"
       when: DRY_RUN | default(0) | int != 0
 
     - name: Output result of git commit and push
       ansible.builtin.debug:
-        msg: "{{ [separator, output_lines.key, separator]  + (output_lines.value | map('regex_replace', '^(.*)$', '- \\1')
+        msg: "{{ [separator, output_lines.key, separator] + (output_lines.value | map('regex_replace', '^(.*)$', '- \\1')
           | list) }}"
-      loop: "{{ output_types | dict2items }}"
+      loop: '{{ output_types | dict2items }}'
       loop_control:
         loop_var: output_lines
-        label: "{{ output_lines.key }}"
+        label: '{{ output_lines.key }}'
       vars:
         output_types:
-          STDOUT: "{{ git_push_result.stdout_lines }}"
-          STDERR: "{{ git_push_result.stderr_lines }}"
-        separator: "----------------------------------------"
+          STDOUT: '{{ git_push_result.stdout_lines }}'
+          STDERR: '{{ git_push_result.stderr_lines }}'
+        separator: '----------------------------------------'
       when:
         - DRY_RUN | default(0) | int == 0
         - output_lines.value | length > 0
