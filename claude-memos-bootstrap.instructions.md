@@ -1,1 +1,1 @@
-/home/peter216/.claude/instructions/claude-memos-bootstrap.instructions.md
+/home/prube194/.claude/instructions/claude-memos-bootstrap.instructions.md
