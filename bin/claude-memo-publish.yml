@@ -11,6 +11,16 @@
     - name: "conversation_title"
       prompt: "Enter the title of the conversation for memory update (e.g., 'Claude.ai Protocol Path Is Operational')"
       private: false
+    - name: "conversation_digest"
+      prompt: "Enter a brief digest or summary of the conversation (e.g., 'This conversation covers the successful implementation of the Claude.ai protocol path, including key steps taken and outcomes achieved.')"
+      private: false
+    - name: "conversation_topics"
+      prompt: "Enter a comma-separated list of topics for the conversation (e.g., 'memo-protocol,mcp')"
+      private: false
+    - name: "conversation_stickiness"
+      prompt: "Should this conversation be marked as sticky in AGENTS.md? (true/false)"
+      private: false
+      default: "false"
   vars:
     home_directory: "{{ lookup('env', 'HOME') }}"
     dot_claude_dir: "{{ home_directory }}/.claude"
@@ -30,6 +40,28 @@
         - DRY_RUN is defined
         - DRY_RUN | type_debug == 'str'
         - DRY_RUN | lower == 'false'
+      tags:
+        - always
+
+    - name: Validate input data
+      ansible.builtin.assert:
+        that:
+          - memo_filename is not none and memo_filename != ''
+          - conversation_title is not none and conversation_title != ''
+          - conversation_digest is not none and conversation_digest != ''
+          - conversation_topics is not none and conversation_topics != ''
+          - conversation_stickiness in ['true', 'false']
+          - conversation_topics is regex('^[a-z0-9][a-z0-9,-]*$')
+          - not conversation_topics is regex(',$')
+        fail_msg: "All input variables must be provided and valid. Topics must contain only lowercase alphanumeric characters, hyphens, and commas."
+      tags:
+        - always
+
+    - name: Create conversation_topics_list variable
+      ansible.builtin.set_fact:
+        conversation_topics_list: "{{ conversation_topics | split(',') | map('trim') | list }}"
+      tags:
+        - always
 
     - name: Find Chezmoi unmanaged files in ~/.claude
       ansible.builtin.shell:
@@ -38,6 +70,8 @@
       loop: "{{ chezmoi_subdirs }}"
       register: find_unmanaged_result
       changed_when: false
+      tags:
+        - chezmoi
 
     - name: Output result of finding unmanaged files
       ansible.builtin.debug:
@@ -51,6 +85,8 @@
         unmanaged_files: "{{ find_unmanaged_result.results | selectattr('item', 'equalto', directory) | map(attribute='stdout_lines')
           | list | flatten }}"
       when: unmanaged_files | length > 0
+      tags:
+        - chezmoi
 
     - name: Publish Claude Memos using Chezmoi
       ansible.builtin.shell:
@@ -62,6 +98,8 @@
         loop_var: directory
       register: chezmoi_publish_result
       when: DRY_RUN | default(0) | int == 0
+      tags:
+        - chezmoi
 
     - name: Get files that would be reconciled by Chezmoi in DRY_RUN mode
       ansible.builtin.shell:
@@ -74,6 +112,8 @@
       register: chezmoi_dry_run_result
       changed_when: false
       when: DRY_RUN | default(0) | int != 0
+      tags:
+        - chezmoi
 
     - name: DRY_RUN mode - Command that would have been executed for Chezmoi publish
       ansible.builtin.debug:
@@ -85,79 +125,250 @@
           - "{{ chezmoi_dry_run_result.results | map(attribute='stdout_lines') | list | flatten | map('regex_replace', '^(.*)$',
             '- \\1') | list }}"
       when: DRY_RUN | default(0) | int != 0
+      tags:
+        - chezmoi
+
+    - name: Debug - Output the full result of Chezmoi publish
+      ansible.builtin.debug:
+        var: chezmoi_publish_result
+        verbosity: 3
+      tags:
+        - chezmoi
 
     - name: Output result of Chezmoi publish
       ansible.builtin.debug:
-        msg: "{{ [separator, 'Directory: ' + result.item, separator] + result.stdout_lines + (result.stderr_lines | map('regex_replace',
+        msg: "{{ [separator, 'Directory: ' + result.directory, separator] + result.stdout_lines + (result.stderr_lines | map('regex_replace',
           '^(.*)$', 'STDERR: \\1') | list) }}"
       loop: "{{ chezmoi_publish_result.results }}"
       loop_control:
         loop_var: result
-        label: "{{ result.item }}"
+        label: "{{ result.directory }}"
       vars:
         separator: "----------------------------------------"
       when:
         - DRY_RUN | default(0) | int == 0
         - result.stdout_lines | length > 0 or result.stderr_lines | length > 0
+      tags:
+        - chezmoi
 
-    - name: Back up memo file before variable substitution
-      ansible.builtin.copy:
-        src: "{{ memos_dir }}/{{ memo_filename }}"
-        dest: "{{ memos_dir }}/{{ memo_filename }}.bak"
-        remote_src: true
+    - name: Apply variable substitutions to memo file
+      when: DRY_RUN | default(0) | int == 0
+      tags:
+        - memo
+      block:
+        - name: Back up memo file before variable substitution
+          ansible.builtin.copy:
+            src: "{{ memos_dir }}/{{ memo_filename }}"
+            dest: "{{ memos_dir }}/{{ memo_filename }}.bak"
+            remote_src: true
 
-    - name: Replace jinja templated variables in the memo file
-      ansible.builtin.replace:
-        path: "{{ memos_dir }}/{{ memo_filename }}"
-        regexp: "\\{\\{\\s*CONVERSATION_TITLE\\s*\\}\\}"
-        replace: "{{ conversation_title }}"
-      register: replace_result
+        - name: Replace jinja templated variables in the memo file
+          ansible.builtin.replace:
+            path: "{{ memos_dir }}/{{ memo_filename }}"
+            regexp: "\\{\\{\\s*CONVERSATION_TITLE\\s*\\}\\}"
+            replace: "{{ conversation_title }}"
+          register: replace_result
 
-    - name: Diff the before and after of the memo file to verify changes
+        - name: Replace topics in the memo file
+          ansible.builtin.lineinfile:
+            path: "{{ memos_dir }}/{{ memo_filename }}"
+            regexp: "^topics:"
+            line: "topics: [{{ conversation_topics_list | join(', ') }}]"
+            state: present
+          register: lineinfile_result
+
+        - name: Diff the before and after of the memo file to verify changes
+          ansible.builtin.command:
+            cmd: "diff {{ memo_filename }}.bak {{ memo_filename }}"
+            chdir: "{{ memos_dir }}"
+          register: diff_result
+          failed_when: false
+          changed_when: false
+
+        - name: Output the diff result of the memo file changes
+          ansible.builtin.debug:
+            msg: "{{ diff_lines if diff_result.rc == 1 else ['No changes detected in the memo file.'] }}"
+          vars:
+            diff_lines: "{{ ['Diff of memo file changes:'] + diff_result.stdout_lines | map('regex_replace', '^(.*)$', '- \\1')
+              }}"
+
+        - name: Prompt user to check file before committing
+          ansible.builtin.pause:
+            prompt: "Please review the changes to the memo file above. Press Enter to continue with committing and pushing the
+              changes, or Ctrl+C to abort."
+
+        - name: Remove backup memo file
+          ansible.builtin.file:
+            path: "{{ memos_dir }}/{{ memo_filename }}.bak"
+            state: absent
+
+      rescue:
+        - name: Restore memo file from backup on failure
+          ansible.builtin.copy:
+            src: "{{ memos_dir }}/{{ memo_filename }}.bak"
+            dest: "{{ memos_dir }}/{{ memo_filename }}"
+            remote_src: true
+
+        - name: Fail after restoring memo file from backup
+          ansible.builtin.fail:
+            msg: "Failed to apply variable substitutions to memo file. Restored from backup at {{ memos_dir }}/{{ memo_filename }}.bak."
+
+    - name: Modify AGENTS.md with new memo entry
+      tags:
+        - agent
+      when: DRY_RUN | default(0) | int == 0
+      block:
+        - name: Back up AGENTS.md file before variable substitution
+          ansible.builtin.copy:
+            src: "{{ memos_dir | dirname }}/AGENTS.md"
+            dest: "{{ memos_dir | dirname }}/AGENTS.md.bak"
+            remote_src: true
+
+        - name: Verify AGENTS.md contains the expected closing fence before updating
+          ansible.builtin.assert:
+            that:
+              - lookup('file', memos_dir | dirname + '/AGENTS.md') is search('^```$', multiline=True)
+            fail_msg: "AGENTS.md does not contain the expected closing ``` fence. Cannot safely insert memo entry — aborting."
+
+        - name: Check if memo entry already exists in AGENTS.md
+          ansible.builtin.shell:
+            cmd: "grep -qF 'id: {{ memo_filename | basename | replace(\".md\", \"\") }}' {{ memos_dir | dirname }}/AGENTS.md"
+            executable: /bin/bash
+          register: memo_id_check
+          failed_when: false
+          changed_when: false
+
+        - name: Fail if memo entry already exists in AGENTS.md
+          ansible.builtin.fail:
+            msg: "Memo entry 'id: {{ memo_filename | basename | replace('.md', '') }}' already exists in AGENTS.md. Aborting to prevent a duplicate entry."
+          when: memo_id_check.rc == 0
+
+        - name: Update AGENTS.md
+          # Inserts before the LAST closing ``` fence so the correct block is targeted
+          # even when AGENTS.md contains multiple code fences in the preamble.
+          # title and digest are passed through to_yaml | trim to handle embedded quotes safely.
+          # Topics are validated upstream to contain only slug characters, so unquoted flow
+          # sequence format is safe and matches the existing corpus style.
+          ansible.builtin.shell:
+            cmd: |
+              python3 << 'PYEOF'
+              import os, sys
+              agents_md = os.environ['AGENTS_MD']
+              entry = os.environ['MEMO_ENTRY'].rstrip('\n')
+              with open(agents_md) as f:
+                  content = f.read()
+              last_fence = content.rfind('\n```')
+              fence_at_start = content.startswith('```')
+              if last_fence == -1:
+                  if fence_at_start:
+                      sys.exit('File starts with ``` fence, but no closing fence was found')
+                  else:
+                      sys.exit('Could not find closing ``` fence in AGENTS.md')
+              content = content[:last_fence] + '\n' + entry + '\n' + content[last_fence:]
+              with open(agents_md, 'w') as f:
+                  f.write(content)
+              PYEOF
+            executable: /bin/bash
+          environment:
+            AGENTS_MD: "{{ memos_dir | dirname }}/AGENTS.md"
+            MEMO_ENTRY: "{{ block_content | indent(width=2, first=true) }}"
+          vars:
+            block_content: |
+              - id: {{ memo_filename | basename | replace('.md', '') }}
+                file: {{ memo_filename }}
+                created: {{ now(fmt='%Y-%m-%d') }}
+                title: {{ conversation_title | to_yaml | trim }}
+                topics: [{{ conversation_topics_list | join(', ') }}]
+                sticky: {{ conversation_stickiness }}
+                digest: {{ conversation_digest | to_yaml | trim }}
+          register: agents_md_update_result
+          changed_when: agents_md_update_result.rc == 0
+
+        - name: Diff the before and after of the AGENTS.md file to verify changes
+          ansible.builtin.command:
+            cmd: "diff {{ memos_dir | dirname }}/AGENTS.md.bak {{ memos_dir | dirname }}/AGENTS.md"
+            chdir: "{{ memos_dir | dirname }}"
+          register: diff_result
+          failed_when: false
+          changed_when: false
+
+        - name: Output the diff result of the AGENTS.md file changes
+          ansible.builtin.debug:
+            msg: "{{ diff_lines if diff_result.rc == 1 else ['No changes detected in the AGENTS.md file.'] }}"
+          vars:
+            diff_lines: "{{ ['Diff of AGENTS.md file changes:'] + diff_result.stdout_lines | map('regex_replace', '^(.*)$', '- \\1')
+              }}"
+
+        - name: Prompt user to check file before committing
+          ansible.builtin.pause:
+            prompt: "Please review the changes to the AGENTS.md file above. Press Enter to continue with committing and pushing the
+              changes, or Ctrl+C to abort."
+
+        - name: Remove backup AGENTS.md file
+          ansible.builtin.file:
+            path: "{{ memos_dir | dirname }}/AGENTS.md.bak"
+            state: absent
+
+      rescue:
+        - name: Restore AGENTS.md from backup on failure
+          ansible.builtin.copy:
+            src: "{{ memos_dir | dirname }}/AGENTS.md.bak"
+            dest: "{{ memos_dir | dirname }}/AGENTS.md"
+            remote_src: true
+
+        - name: Fail after restoring AGENTS.md from backup
+          ansible.builtin.fail:
+            msg: "Failed to update AGENTS.md. Restored from backup at {{ memos_dir | dirname }}/AGENTS.md.bak."
+
+    - name: Stage memo file and AGENTS.md for commit
       ansible.builtin.command:
-        cmd: "diff {{ memo_filename }}.bak {{ memo_filename }}"
-        chdir: "{{ memos_dir }}"
-      register: diff_result
-      failed_when: false
-      changed_when: false
+        cmd: "git add memos/{{ memo_filename | basename }} AGENTS.md"
+        chdir: "{{ memos_dir | dirname }}"
+      when: DRY_RUN | default(0) | int == 0
+      tags:
+        - memo
+        - agent
+        - commit
 
-    - name: Output the diff result of the memo file changes
+    - name: DRY_RUN mode - git add that would have been executed
       ansible.builtin.debug:
-        msg: "{{ diff_lines if diff_result.rc == 1 else ['No changes detected in the memo file.'] }}"
-      vars:
-        diff_lines: "{{ ['Diff of memo file changes:'] + diff_result.stdout_lines | map('regex_replace', '^(.*)$', '- \\1')
-          }}"
+        msg:
+          - "chdir {{ memos_dir | dirname }}"
+          - "git add memos/{{ memo_filename | basename }} AGENTS.md"
+      when: DRY_RUN | default(0) | int != 0
+      tags:
+        - memo
+        - agent
+        - commit
 
-    - name: Prompt user to check file before committing
-      ansible.builtin.pause:
-        prompt: "Please review the changes to the memo file above. Press Enter to continue with committing and pushing the
-          changes, or Ctrl+C to abort."
-
-    - name: Remove backup memo file
-      ansible.builtin.file:
-        path: "{{ memos_dir }}/{{ memo_filename }}.bak"
-        state: absent
-
-    - name: Commit and push changes to the memo file
+    - name: Commit and push changes to the AGENTS.md file
       ansible.builtin.shell:
         cmd: "{{ command }}"
         executable: /bin/bash
-        chdir: "{{ memos_dir }}"
+        chdir: "{{ memos_dir | dirname }}"
       vars:
-        command: "{{ 'source ~/.function/git.function && pushgitfast ' + (memo_filename | basename) + ': ' + (conversation_title
+        command: "{{ 'source ~/.function/git.function && pushgitfast ' + (memo_filename | basename | quote) + ': ' + (conversation_title
           | quote) }}"
       register: git_push_result
       when: DRY_RUN | default(0) | int == 0
+      tags:
+        - memo
+        - agent
+        - commit
 
     - name: DRY_RUN mode - Command that would have been executed
       ansible.builtin.debug:
         msg:
-          - "chdir {{ memos_dir }}"
+          - "chdir {{ memos_dir | dirname }}"
           - "/bin/bash -c '{{ command }}'"
       vars:
         command: "{{ 'source ~/.function/git.function && pushgitfast ' + (memo_filename | basename) + ': ' + (conversation_title
           | quote) }}"
       when: DRY_RUN | default(0) | int != 0
+      tags:
+        - memo
+        - agent
+        - commit
 
     - name: Output result of git commit and push
       ansible.builtin.debug:
@@ -175,3 +386,7 @@
       when:
         - DRY_RUN | default(0) | int == 0
         - output_lines.value | length > 0
+      tags:
+        - memo
+        - agent
+        - commit
