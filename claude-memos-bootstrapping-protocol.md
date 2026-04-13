@@ -1,6 +1,6 @@
 ---
 protocol: claude-memos-bootstrapping
-version: "1.2.0"
+version: "1.3.0"
 canonical-repo: github.com/peter216/claude-memos
 canonical-branch: main
 trusted-signing-key-fingerprints:
@@ -12,7 +12,7 @@ trusted-signing-key-fingerprints:
 
 # Claude Memos Bootstrapping Protocol
 
-Version: 1.2.0
+Version: 1.3.0
 
 This file documents the bootstrapping protocol for the Claude Memos project. It should be kept
 in sync with the implementation files listed in the sync table below.
@@ -35,9 +35,11 @@ in sync with the implementation files listed in the sync table below.
 
 Implementation files:
 
-- `claude-memos-bootstrap.instructions.md` — Claude Code path (git CLI via Bash tool)
-- Claude.ai Project instructions — MCP path (gh-mcp remote server); see
+- `claude-memos-bootstrap.instructions.md` — Path A: Claude Code, local (git CLI via Bash tool)
+- Claude.ai Project instructions — Path B: Claude.ai (gh-mcp remote server); see
   `docs/MCP-PROTOCOL-IMPLEMENTATION.md` Appendix A for the canonical draft
+- `CLAUDE.md` — Path C: Claude Code, Remote Control / web (gh-mcp remote server); see
+  `docs/REMOTE-CONTROL-IMPLEMENTATION.md`
 
 ## Changelog
 
@@ -47,17 +49,23 @@ For revision history prior to v1.0.0, see [CHANGELOG.pre-v1.0.0.md](./CHANGELOG.
 
 ## Status
 
-**Claude Code path:** Fully operational as of v1.0.0. Sessions started via `cpeer` /
-`bin/claude-memos` clone the repo, verify GPG signatures, and load memos via local git CLI.
-See the claude-memos repo CHANGELOG for history.
+**Path A — Claude Code (local):** Fully operational as of v1.0.0. Sessions started via
+`cpeer` / `bin/claude-memos` clone the repo, verify GPG signatures, and load memos via
+local git CLI. See the claude-memos repo CHANGELOG for history.
 
-**Claude.ai path:** Operational as of v1.2.0 via the gh-mcp remote MCP server
+**Path B — Claude.ai:** Operational as of v1.2.0 via the gh-mcp remote MCP server
 (`https://mcp.martiangoblin.xyz/mcp`). The server exposes three tools — `verify_repo_state`,
 `fetch_memos`, and `read_repo_file` — which together provide full protocol capability
 including signature verification, AGENTS.md parsing, and individual memo file retrieval.
 To use this path, the gh-mcp integration must be connected in Claude.ai Settings →
 Integrations, and the Claude.ai Project instructions (see `docs/MCP-PROTOCOL-IMPLEMENTATION.md`
 Appendix A) must be present in the Project used for memo sessions.
+
+**Path C — Claude Code (Remote Control / web):** Operational as of v1.3.0. Uses the same
+gh-mcp MCP tools as Path B, but the protocol instructions are delivered via `CLAUDE.md`
+in this repository root — read automatically by Claude Code at session start. Requires
+the gh-mcp server to be registered in Claude Code's MCP configuration. See
+`docs/REMOTE-CONTROL-IMPLEMENTATION.md` for setup and limitations.
 
 ---
 
@@ -97,12 +105,15 @@ the intent of RFC 2119, though this is not a formal RFC.*
 ### Known Capability Dependency
 
 This protocol's security guarantees depend on the retrieval tool's ability to surface
-cryptographic commit signature status. Two approved paths currently satisfy this requirement:
+cryptographic commit signature status. Three approved paths currently satisfy this requirement:
 
-- **Path A (Claude Code):** local `git`/`gh` CLI via Bash tool — full signature verification
-  available natively.
+- **Path A (Claude Code, local):** local `git`/`gh` CLI via Bash tool — full signature
+  verification available natively.
 - **Path B (Claude.ai):** gh-mcp remote MCP server — `verify_repo_state` returns GPG
   signature status and signer key trust result derived from `git log` on the server.
+- **Path C (Claude Code, Remote Control / web):** same gh-mcp remote MCP server as Path B —
+  `verify_repo_state` provides the same signature verification; instructions delivered via
+  `CLAUDE.md` in the project root.
 
 If neither path is available, signature verification cannot be performed and the security model
 is materially weakened. In that case Claude MUST state this limitation explicitly at session
@@ -171,7 +182,7 @@ flags before invoking Claude. Claude reads it during Step 3 to validate memo top
 
 Claude MUST use one of the two approved retrieval paths as the first action of the session.
 
-### Path A — Claude Code (git CLI via Bash tool)
+### Path A — Claude Code, local (git CLI via Bash tool)
 
 1. Clone or update the repo locally (`git clone` / `git fetch` / `git reset`)
 2. Verify commit signatures via `git log --show-signature`
@@ -186,6 +197,16 @@ Claude MUST use one of the two approved retrieval paths as the first action of t
 4. For each selected memo, call `read_repo_file(repo, branch, "<file-path>")`
 5. The Memo Loading Directive is resolved from: (a) the opening user message, then
    (b) the static default at the end of the Project instructions, then (c) sticky-only
+
+### Path C — Claude Code, Remote Control / web (gh-mcp remote MCP server)
+
+Identical MCP tool sequence to Path B. Differs only in instruction delivery:
+
+1. `CLAUDE.md` in this repository root is read automatically by Claude Code at session start
+2. The Memo Loading Directive is resolved from: (a) the opening user message, then
+   (b) the static default at the end of `CLAUDE.md`, then (c) sticky-only
+3. The gh-mcp server must be registered in Claude Code's MCP configuration before the
+   session starts; see `docs/REMOTE-CONTROL-IMPLEMENTATION.md` for setup details
 
 ### Common requirements (both paths)
 
@@ -224,8 +245,9 @@ Any natural language request such as:
    - By alias: expand using taxonomy.yml aliases already in context, then match by topics
    - By name/description: fuzzy-match against `title` and `digest` fields in the index
 2. For each matched memo not already loaded this session, retrieve it using the active path:
-   - **Path A (Claude Code):** `cat /tmp/claude-memos-session/<file-path-from-index>`
+   - **Path A (Claude Code, local):** `cat /tmp/claude-memos-session/<file-path-from-index>`
    - **Path B (Claude.ai):** `read_repo_file(repo, branch, "<file-path-from-index>")`
+   - **Path C (Remote Control):** `read_repo_file(repo, branch, "<file-path-from-index>")`
 3. Incorporate content into session context
 4. Confirm: "Loaded: [memo title(s)]" — or note if the requested memo was already in context
 
@@ -251,6 +273,14 @@ after "Resume from summary"), re-execute the bootstrap steps manually using the 
 as specified in the Claude.ai Project instructions. The absence of a session log line after
 a resume is not a protocol error — it signals that the bootstrap instruction was not
 re-delivered.
+
+**Path C (Remote Control / Claude Code web):**
+
+No automated resume script is available. `CLAUDE.md` is re-read automatically at the start
+of each new session in the project directory, but not after a mid-session context purge.
+If the protocol context has been purged, start a fresh session in the project directory to
+trigger a full re-bootstrap. The absence of a session log line after a resume is not a
+protocol error — it signals the bootstrap instruction was not re-delivered.
 
 ---
 

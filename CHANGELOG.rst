@@ -4,6 +4,30 @@ mind.netdevconnect Release Notes
 
 .. contents:: Topics
 
+v1.3.0
+======
+
+Release Summary
+---------------
+
+This release adds the Remote Control path (Path C) for Claude Code web sessions. The
+protocol is now operational on three paths: Path A (Claude Code local, git CLI), Path B
+(Claude.ai, gh-mcp MCP server), and Path C (Claude Code Remote Control / web, gh-mcp
+MCP server via CLAUDE.md).
+
+Minor Changes
+-------------
+
+- ``CLAUDE.md`` — new Path C (Remote Control / Claude Code web) bootstrap instructions
+  file; delivers the MCP-based protocol via CLAUDE.md read automatically by Claude Code
+  at session start; equivalent to Claude.ai Project instructions (Path B) in logic and
+  tool sequence.
+- ``docs/REMOTE-CONTROL-IMPLEMENTATION.md`` — new document describing Path C setup,
+  requirements, path comparison table, and known limitations.
+- ``claude-memos-bootstrapping-protocol.md`` — bump to v1.3.0; add Path C throughout
+  (Status, Known Capability Dependency, Method, Mid-Session Loading, Session Resume);
+  update implementation files table; update path labels to A/B/C consistently.
+
 v1.2.0
 ======
 
