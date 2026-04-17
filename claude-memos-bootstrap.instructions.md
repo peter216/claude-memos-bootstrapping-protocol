@@ -1,1 +1,0 @@
-/home/prube194/.claude/instructions/claude-memos-bootstrap.instructions.md

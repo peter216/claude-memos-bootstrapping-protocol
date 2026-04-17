@@ -19,7 +19,7 @@ The trusted key fingerprints are:
 - 63611E761833B99242003DE2D8DDC4C14D0B745A — peter216@gmail.com, active
 - 7D067EDD2989BEBA5EBC0D8121B846977F8A38E7 — peter216@gmail.com
 - E030143735F018D907E0F15AD6197AAF6DD17CCE — peter216@gmail.com, local only
-- 0A7C57B889F723C43F9EA93FDBC74AEB86D28BC2  # peter216@gmail.com, GitHub-registered, work-machine
+- 0A7C57B889F723C43F9EA93FDBC74AEB86D28BC2 — peter216@gmail.com, GitHub-registered, work-machine
 
 ## Step 2 — Read AGENTS.md and parse the memo index
 
