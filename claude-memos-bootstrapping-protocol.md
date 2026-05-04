@@ -175,7 +175,7 @@ Claude MUST use one of the two approved retrieval paths as the first action of t
 
 1. Clone or update the repo locally (`git clone` / `git fetch` / `git reset`)
 2. Verify commit signatures via `git log --show-signature`
-3. Read `AGENTS.md`, `taxonomy.yml`, and selected memo files via `cat`
+3. Read `AGENTS.md`, `taxonomy.yml`, and selected memo files via the Read tool
 4. The Memo Loading Directive is provided at the end of the instructions file
 
 ### Path B — Claude.ai (gh-mcp remote MCP server)
@@ -224,7 +224,7 @@ Any natural language request such as:
    - By alias: expand using taxonomy.yml aliases already in context, then match by topics
    - By name/description: fuzzy-match against `title` and `digest` fields in the index
 2. For each matched memo not already loaded this session, retrieve it using the active path:
-   - **Path A (Claude Code):** `cat /tmp/claude-memos-session/<file-path-from-index>`
+   - **Path A (Claude Code):** Read tool call on `/tmp/claude-memos-session/<file-path-from-index>`
    - **Path B (Claude.ai):** `read_repo_file(repo, branch, "<file-path-from-index>")`
 3. Incorporate content into session context
 4. Confirm: "Loaded: [memo title(s)]" — or note if the requested memo was already in context

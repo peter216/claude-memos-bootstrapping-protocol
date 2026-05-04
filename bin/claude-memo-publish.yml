@@ -264,7 +264,7 @@
                       sys.exit('File starts with ``` fence, but no closing fence was found')
                   else:
                       sys.exit('Could not find closing ``` fence in AGENTS.md')
-              content = content[:last_fence] + '\n' + entry + '\n' + content[last_fence:]
+              content = content[:last_fence] + '\n\n' + entry + content[last_fence:]
               with open(agents_md, 'w') as f:
                   f.write(content)
               PYEOF
@@ -275,7 +275,7 @@
           vars:
             block_content: |
               - id: {{ memo_filename | basename | replace('.md', '') }}
-                file: {{ memo_filename }}
+                file: {{ 'memos/' + memo_filename }}
                 created: {{ now(fmt='%Y-%m-%d') }}
                 title: {{ conversation_title | to_yaml | trim }}
                 topics: [{{ conversation_topics_list | join(', ') }}]
