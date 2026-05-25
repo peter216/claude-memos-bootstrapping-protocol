@@ -8,6 +8,7 @@ trusted-signing-key-fingerprints:
   - "63611E761833B99242003DE2D8DDC4C14D0B745A"  # peter216@gmail.com, GitHub-registered, active
   - "E030143735F018D907E0F15AD6197AAF6DD17CCE"  # peter216@gmail.com, local only
   - "0A7C57B889F723C43F9EA93FDBC74AEB86D28BC2"  # peter216@gmail.com, GitHub-registered, work-machine
+  - "4C5ACA3512163CCB2B52028C00DF25341028B109"  # peter216@gmail.com, latitude local key, created 2026-05-24
 ---
 
 # Claude Memos Bootstrapping Protocol
